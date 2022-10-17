@@ -3,9 +3,12 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/string_cast.hpp>
+#include <glm/gtx/norm.hpp>
 #include <string>
 #include <GL/freeglut_std.h>
 #include <iostream>
+#include <chrono>
+#include <thread>
 using namespace std;
 
 //*********************************************************************************
@@ -32,6 +35,11 @@ vector<vertex> spline;
 vector<vertex> tangentStarts;
 vector<vertex> tangentEnds;
 
+vertex objCenter;
+vertex s;
+vertex e;
+vertex os;
+
 unsigned int numVertices = 0;
 unsigned int numFaces = 0;
 unsigned int numSplineVertices = 0;
@@ -42,6 +50,7 @@ unsigned int numSplineVertices = 0;
 
 void myDisplay();
 void myReshape(int width, int height);
+void myIdle();
 bool loadOBJ(const char* path, vector<vertex>& out_vertices, vector<face>& faces);
 
 //*********************************************************************************
@@ -147,6 +156,7 @@ int main(int argc, char** argv)
 	window = glutCreateWindow("Pracenje putanje");
 	glutReshapeFunc(myReshape);
 	glutDisplayFunc(myDisplay);
+	glutIdleFunc(myIdle);
 
 	glutMainLoop();
 	return 0;
@@ -163,6 +173,11 @@ bool loadOBJ(const char* path, std::vector<vertex>& vertices, vector<face>& face
 		printf("Impossible to open the file!\n");
 		return false;
 	}
+	
+	objCenter.pos.x = 0.0f;
+	objCenter.pos.y = 0.0f;
+	objCenter.pos.z = 0.0f;
+
 	while (1) {
 		char lineHeader[128];
 
@@ -180,6 +195,10 @@ bool loadOBJ(const char* path, std::vector<vertex>& vertices, vector<face>& face
 			v.pos.x *= 4;
 			v.pos.y *= 4;
 			v.pos.z *= 4;
+
+			objCenter.pos.x += v.pos.x;
+			objCenter.pos.y += v.pos.y;
+			objCenter.pos.z += v.pos.z;
 
 			vertices.push_back(v);
 			numVertices++;
@@ -200,11 +219,16 @@ bool loadOBJ(const char* path, std::vector<vertex>& vertices, vector<face>& face
 			numFaces++;
 		}
 	}
+
+	objCenter.pos.x /= numVertices;
+	objCenter.pos.y /= numVertices;
+	objCenter.pos.z /= numVertices;
 }
 
 //*********************************************************************************
 //	Osvjezavanje prikaza. 
 //*********************************************************************************
+int t = 0;
 
 void myDisplay(void)
 {
@@ -226,6 +250,51 @@ void myDisplay(void)
 		glVertex3f(tangentEnds.at(i).pos.x, tangentEnds.at(i).pos.y, tangentEnds.at(i).pos.z);
 	}
 	glEnd();
+
+	glTranslatef(spline.at(t).pos.x, spline.at(t).pos.y, spline.at(t).pos.z);
+
+	// pocetna rotacija
+	s.pos.x = 0.0f;
+	s.pos.y = 0.0f;
+	s.pos.z = 1.0f;
+
+	// racunamo ciljnu orijentaciju iz tangente
+	e.pos.x = tangentEnds.at(t).pos.x - tangentStarts.at(t).pos.x;
+	e.pos.y = tangentEnds.at(t).pos.y - tangentStarts.at(t).pos.y;
+	e.pos.z = tangentEnds.at(t).pos.z - tangentStarts.at(t).pos.z;
+	
+	// racunamo kut
+	double normS = glm::l2Norm(s.pos);
+	double normE = glm::l2Norm(e.pos);
+	double se = glm::dot(s.pos, e.pos);
+	double phi = acos(se / (normS * normE));
+	phi = phi / (2 * 3.14159265359f) * 360;
+
+	// rotiramo
+	glRotatef(phi, os.pos.x, os.pos.y, os.pos.z);
+
+	glTranslatef(-objCenter.pos.x, -objCenter.pos.y, -objCenter.pos.z);
+
+	glBegin(GL_LINES);
+	for (int i = 0; i < numFaces; i++) {
+		vertex v1 = faces.at(i).v1;
+		vertex v2 = faces.at(i).v2;
+		vertex v3 = faces.at(i).v3;
+
+		glVertex3f(v1.pos.x, v1.pos.y, v1.pos.z);
+		glVertex3f(v2.pos.x, v2.pos.y, v2.pos.z);
+
+		glVertex3f(v2.pos.x, v2.pos.y, v2.pos.z);
+		glVertex3f(v3.pos.x, v3.pos.y, v3.pos.z);
+
+		glVertex3f(v3.pos.x, v3.pos.y, v3.pos.z);
+		glVertex3f(v1.pos.x, v1.pos.y, v1.pos.z);
+	}
+	glEnd();
+	t++;
+
+	this_thread::sleep_for(chrono::milliseconds(10));
+	if (t == 100 * (numSplineVertices - 3)) t = 0;
 
 	glFlush();
 }
@@ -252,4 +321,12 @@ void myReshape(int w, int h)
 	glClear(GL_COLOR_BUFFER_BIT);
 	glPointSize(1.0f);
 	glColor3f(0.0f, 0.0f, 0.0f);
+}
+
+//*********************************************************************************
+//	Idle funkcija (tjera myDisplay da se stalno updatea i tako mijenja t)
+//*********************************************************************************
+
+void myIdle() {
+	myDisplay();
 }
