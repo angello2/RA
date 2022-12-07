@@ -2,14 +2,10 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="0608c73d-bb64-4512-9279-2271bbb0e89d" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../RALab1/RALab1.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../RALab1/RALab1.cpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../RALab1/bsplajn.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/RALab2.cpp" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/RALab2.sln" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/RALab2.vcxproj" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/RALab2.vcxproj.filters" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/RALab2.vcxproj.user" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
