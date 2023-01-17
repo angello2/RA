@@ -35,27 +35,28 @@ vector<vertex> spline;
 vector<vertex> tangentStarts;
 vector<vertex> tangentEnds;
 
-vertex objCenter;
+vertex S;
 vertex s;
 vertex e;
 vertex os;
+vertex ociste;
 
 unsigned int numVertices = 0;
 unsigned int numFaces = 0;
 unsigned int numSplineVertices = 0;
 
-//*********************************************************************************
-//	Function Prototypes.
-//*********************************************************************************
+GLdouble xmax;
+GLdouble ymax;
+GLdouble zmax;
+GLdouble xmin;
+GLdouble ymin;
+GLdouble zmin;
 
 void myDisplay();
+void updatePerspective();
 void myReshape(int width, int height);
 void myIdle();
 bool loadOBJ(const char* path, vector<vertex>& out_vertices, vector<face>& faces);
-
-//*********************************************************************************
-//	Glavni program.
-//*********************************************************************************
 
 int main(int argc, char** argv)
 {
@@ -105,7 +106,7 @@ int main(int argc, char** argv)
 		vertex r2 = splineVertices.at(i + 2);
 		vertex r3 = splineVertices.at(i + 3);
 
-		// t ide od 0 do 1, inkrementiran po 0.01
+		// t ide od 0 do 1, inkrementiramo po 0.01
 		for (float t = 0.0; t < 1; t += 0.01) {
 			// racunamo T * B / 6
 			float f1 = 1.0 / 6.0 * (-1 * pow(t, 3.0) + 3 * pow(t, 2.0) - 3 * t + 1);
@@ -118,7 +119,7 @@ int main(int argc, char** argv)
 			splineVertex.pos.y = f1 * r0.pos.y + f2 * r1.pos.y + f3 * r2.pos.y + f4 * r3.pos.y;
 			splineVertex.pos.z = f1 * r0.pos.z + f2 * r1.pos.z + f3 * r2.pos.z + f4 * r3.pos.z;
 
-			// dodajemo tocku u splajn
+			// dodajemo tocku u splajn krivulju
 			spline.push_back(splineVertex);
 
 			// racunamo tangente
@@ -148,6 +149,46 @@ int main(int argc, char** argv)
 		}
 	}
 
+	// skaliramo i centriramo tocke splajn krivulje i tangenata
+	xmax = spline.at(0).pos.x, xmin = vertices.at(0).pos.x;
+	ymax = spline.at(0).pos.y, ymin = vertices.at(0).pos.y;
+	zmax = spline.at(0).pos.z, zmin = vertices.at(0).pos.z;
+
+	for (int i = 0; i < vertices.size() - 1; i++) {
+		if (xmax < vertices.at(i).pos.x) xmax = vertices.at(i).pos.x;
+		if (xmin > vertices.at(i).pos.x) xmin = vertices.at(i).pos.x;
+		if (ymax < vertices.at(i).pos.y) ymax = vertices.at(i).pos.y;
+		if (ymin > vertices.at(i).pos.y) ymin = vertices.at(i).pos.y;
+		if (zmax < vertices.at(i).pos.z) zmax = vertices.at(i).pos.z;
+		if (zmin > vertices.at(i).pos.z) zmin = vertices.at(i).pos.z;
+	}
+
+	vertex spline_S;
+
+	spline_S.pos.x = (xmax + xmin) / 2;
+	spline_S.pos.y = (ymax + ymin) / 2;
+	spline_S.pos.z = (zmax + zmin) / 2;
+
+	GLdouble M = xmax - xmin;
+	if (M < ymax - ymin) M = ymax - ymin;
+	if (M < zmax - zmin) M = zmax - zmin;
+
+	for (vertex v : spline) {
+		v.pos.x = (v.pos.x - spline_S.pos.x) * 2 / M;
+		v.pos.y = (v.pos.y - spline_S.pos.y) * 2 / M;
+		v.pos.z = (v.pos.z - spline_S.pos.z) * 2 / M;
+	}
+	for (vertex v : tangentEnds) {
+		v.pos.x = (v.pos.x - spline_S.pos.x) * 2 / M;
+		v.pos.y = (v.pos.y - spline_S.pos.y) * 2 / M;
+		v.pos.z = (v.pos.z - spline_S.pos.z) * 2 / M;
+	}
+	for (vertex v : tangentStarts) {
+		v.pos.x = (v.pos.x - spline_S.pos.x) * 2 / M;
+		v.pos.y = (v.pos.y - spline_S.pos.y) * 2 / M;
+		v.pos.z = (v.pos.z - spline_S.pos.z) * 2 / M;
+	}
+
 	glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
 	glutInitWindowSize(width, height);
 	glutInitWindowPosition(100, 100);
@@ -155,17 +196,13 @@ int main(int argc, char** argv)
 
 	window = glutCreateWindow("Pracenje putanje");
 	glutReshapeFunc(myReshape);
+	glutKeyboardFunc(myKeyboard);
 	glutDisplayFunc(myDisplay);
 	glutIdleFunc(myIdle);
 
 	glutMainLoop();
 	return 0;
 }
-
-//*********************************************************************************
-//	Ucitavanje objekta.
-//*********************************************************************************
-
 bool loadOBJ(const char* path, std::vector<vertex>& vertices, vector<face>& faces)
 {
 	FILE* file = fopen(path, "r");
@@ -174,9 +211,9 @@ bool loadOBJ(const char* path, std::vector<vertex>& vertices, vector<face>& face
 		return false;
 	}
 	
-	objCenter.pos.x = 0.0f;
-	objCenter.pos.y = 0.0f;
-	objCenter.pos.z = 0.0f;
+	S.pos.x = 0.0f;
+	S.pos.y = 0.0f;
+	S.pos.z = 0.0f;
 
 	while (1) {
 		char lineHeader[128];
@@ -196,9 +233,9 @@ bool loadOBJ(const char* path, std::vector<vertex>& vertices, vector<face>& face
 			v.pos.y *= 4;
 			v.pos.z *= 4;
 
-			objCenter.pos.x += v.pos.x;
-			objCenter.pos.y += v.pos.y;
-			objCenter.pos.z += v.pos.z;
+			S.pos.x += v.pos.x;
+			S.pos.y += v.pos.y;
+			S.pos.z += v.pos.z;
 
 			vertices.push_back(v);
 			numVertices++;
@@ -220,25 +257,43 @@ bool loadOBJ(const char* path, std::vector<vertex>& vertices, vector<face>& face
 		}
 	}
 
-	objCenter.pos.x /= numVertices;
-	objCenter.pos.y /= numVertices;
-	objCenter.pos.z /= numVertices;
+	//skaliranje tijela na [-1, 1] i centriranje u (0,0,0)
+	xmax = vertices.at(0).pos.x, xmin = vertices.at(0).pos.x;
+	ymax = vertices.at(0).pos.y, ymin = vertices.at(0).pos.y;
+	zmax = vertices.at(0).pos.z, zmin = vertices.at(0).pos.z;
+
+	for (int i = 0; i < vertices.size() - 1; i++) {
+		if (xmax < vertices.at(i).pos.x) xmax = vertices.at(i).pos.x;
+		if (xmin > vertices.at(i).pos.x) xmin = vertices.at(i).pos.x;
+		if (ymax < vertices.at(i).pos.y) ymax = vertices.at(i).pos.y;
+		if (ymin > vertices.at(i).pos.y) ymin = vertices.at(i).pos.y;
+		if (zmax < vertices.at(i).pos.z) zmax = vertices.at(i).pos.z;
+		if (zmin > vertices.at(i).pos.z) zmin = vertices.at(i).pos.z;
+	}
+
+	GLdouble M = xmax - xmin;
+	if (M < ymax - ymin) M = ymax - ymin;
+	if (M < zmax - zmin) M = zmax - zmin;
+
+	for (vertex v : vertices) {
+		v.pos.x = (v.pos.x - S.pos.x) * 2 / M;
+		v.pos.y = (v.pos.y - S.pos.y) * 2 / M;
+		v.pos.z = (v.pos.z - S.pos.z) * 2 / M;
+	}
 }
 
-//*********************************************************************************
-//	Osvjezavanje prikaza. 
-//*********************************************************************************
 int t = 0;
 
 void myDisplay(void)
 {
 	glLoadIdentity();
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glTranslatef(-5.0, -5.0, -75.0);
+	glTranslatef(-5, -5, -75.0);
 
 	// crtamo B-splajn krivulju
 	glBegin(GL_LINE_STRIP);
 	for (int i = 0; i < size(spline); i++) {
+		glColor3f(1.0f, 1.0f, 1.0f);
 		glVertex3f(spline.at(i).pos.x, spline.at(i).pos.y, spline.at(i).pos.z);
 	}
 	glEnd();
@@ -246,11 +301,13 @@ void myDisplay(void)
 	// crtamo tangente (samo 4 po segmentu, ne sve)
 	glBegin(GL_LINES);
 	for (int i = 0; i < size(tangentStarts); i += 25) {
+		glColor3f(1.0f, 1.0f, 1.0f);
 		glVertex3f(tangentStarts.at(i).pos.x, tangentStarts.at(i).pos.y, tangentStarts.at(i).pos.z);
 		glVertex3f(tangentEnds.at(i).pos.x, tangentEnds.at(i).pos.y, tangentEnds.at(i).pos.z);
 	}
 	glEnd();
 
+	// objekt crtamo na poziciji splajn krivulje
 	glTranslatef(spline.at(t).pos.x, spline.at(t).pos.y, spline.at(t).pos.z);
 
 	// pocetna rotacija
@@ -273,13 +330,15 @@ void myDisplay(void)
 	// rotiramo
 	glRotatef(phi, os.pos.x, os.pos.y, os.pos.z);
 
-	glTranslatef(-objCenter.pos.x, -objCenter.pos.y, -objCenter.pos.z);
+	glTranslatef(-S.pos.x, -S.pos.y, -S.pos.z);
 
 	glBegin(GL_LINES);
 	for (int i = 0; i < numFaces; i++) {
 		vertex v1 = faces.at(i).v1;
 		vertex v2 = faces.at(i).v2;
 		vertex v3 = faces.at(i).v3;
+
+		glColor3f(1.0f, 1.0f, 1.0f);
 
 		glVertex3f(v1.pos.x, v1.pos.y, v1.pos.z);
 		glVertex3f(v2.pos.x, v2.pos.y, v2.pos.z);
@@ -293,40 +352,30 @@ void myDisplay(void)
 	glEnd();
 	t++;
 
+	// pauza da animacija ne ide prebrzo
 	this_thread::sleep_for(chrono::milliseconds(10));
 	if (t == 100 * (numSplineVertices - 3)) t = 0;
 
 	glFlush();
-}
-
-//*********************************************************************************
-//	Promjena velicine prozora.
-//*********************************************************************************
+}******************************************************************************
 
 void myReshape(int w, int h)
 {
 	width = w; height = h;
 	glViewport(0, 0, width, height);
-
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-
-	gluPerspective(45.0f, (GLfloat)width / (GLfloat)height, 0.1f, 100.0f);
-
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-
-	glLoadIdentity();
-	glClearColor(1.0f, 1.0f, 1.0f, 0.0f);
-	glClear(GL_COLOR_BUFFER_BIT);
-	glPointSize(1.0f);
-	glColor3f(0.0f, 0.0f, 0.0f);
+	updatePerspective();
 }
 
-//*********************************************************************************
-//	Idle funkcija (tjera myDisplay da se stalno updatea i tako mijenja t)
-//*********************************************************************************
-
+void updatePerspective()
+{
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluPerspective(45.0, (float)width / height, 0.5, 75.0);
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	gluLookAt(ociste.pos.x, ociste.pos.y, ociste.pos.z, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
+}
 void myIdle() {
+	updatePerspective();
 	myDisplay();
 }
